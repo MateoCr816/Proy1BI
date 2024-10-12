@@ -79,7 +79,7 @@
                         const probability = parseFloat(data.probability[index]);
                         resultDiv.innerHTML += `
                             <p><strong>Comentario ${index + 1}:</strong> ${comments[index]}</p>
-                            <p><strong>Predicción:</strong> ${prediction}</p>
+                            <p><strong>Predicción:</strong> ODS ${prediction}</p>
                             <p><strong>Probabilidad:</strong> ${(probability * 100).toFixed(2)}%</p>
                             <hr>
                         `;
