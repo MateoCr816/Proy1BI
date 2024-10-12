@@ -6,8 +6,18 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
 from sklearn.model_selection import train_test_split
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
+# Habilitar CORS para permitir todas las solicitudes en desarrollo
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Permitir todas las fuentes (esto es para desarrollo)
+    allow_credentials=True,
+    allow_methods=["*"],  # Permitir todos los métodos (GET, POST, etc.)
+    allow_headers=["*"],  # Permitir todos los headers
+)
+
 
 #Ruta del pipeline
 model_path = 'assets/modelo_nuevo.joblib'
@@ -45,8 +55,8 @@ async def reentrenar_modelo(request: Request):
     # Retornar las métricas de evaluación JSON
     return {
         "Accuracy": accuracy,
-        "Matriz de Confusión": matrix_confusion.tolist(),
-        "Reporte de Clasificación": filtered_classification_rpt
+        "Matriz de Confusion": matrix_confusion.tolist(),
+        "Reporte de Clasificacion": filtered_classification_rpt
     }
 
 @app.post("/predict")
@@ -56,10 +66,12 @@ async def make_predictions(request: Request):
 
     # Recibir los datos de prueba del modelo de clasificación
     request_data = await request.json()
-    X_input = pd.DataFrame([item['Textos_espanol'] for item in request_data], columns=["Textos_espanol"])
+    X_input = pd.DataFrame(request_data['Textos_espanol'], columns=["Textos_espanol"])
 
     # HPredicciones
     result = model.predict(X_input["Textos_espanol"])
+    probability = model.predict_proba(X_input["Textos_espanol"])
 
     # Retorno de la clasificación
-    return {"sdg": result.tolist()}
+    return {"sdg": result.tolist(),
+            "probability": probability.tolist() }

@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <title>Reentrenar Modelo</title>
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: #f8f9fa;
+        }
+        .container {
+            max-width: 800px;
+            margin: auto;
+            padding: 20px;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .upload-button {
+            width: auto; 
+            padding: 10px;
+            margin: 10px auto; 
+            display: block; 
+            transition: background-color 0.3s ease;
+        }
+        .upload-button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-5">
+        <h1 class="text-center">Reentrenar Modelo</h1>
+        <p class="text-center">Por favor, carga un archivo en formato .json. La estructura del JSON debe ser:</p>
+        <pre class="text-center">[{ Textos_espanol: "comentario_1", sdg: 3}, { Textos_espanol: "Comentario_2", sdg: 5}, ...]</pre>
+        <input type="file" id="fileInput" accept=".json" class="form-control" />
+        <button class="btn btn-success mt-3 upload-button" id="uploadBtn">Cargar Archivo</button>
+        <div id="result" class="mt-4"></div>
+    </div>
+    
+    <button class="btn btn-primary mb-3" style="display: block; margin: 20px auto;" onclick="window.location.href='index.html'">Volver a la Página Principal</button>
+
+    <script>
+        document.getElementById('uploadBtn').addEventListener('click', function() {
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+
+            if (file) {
+                const reader = new FileReader();
+                
+                reader.onload = function(event) {
+                    try {
+                        const jsonData = JSON.parse(event.target.result);
+                        
+                        
+                        fetch('http://127.0.0.1:8000/reentrenar', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify(jsonData),
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            const resultDiv = document.getElementById('result');
+                            resultDiv.innerHTML = '<h3>Resultados del Reentrenamiento:</h3>';
+                            resultDiv.innerHTML += `<p><strong>Precisión:</strong> ${data.Accuracy}</p>`;
+
+                            // Mostrar la matriz de confusión en una tabla
+                            resultDiv.innerHTML += '<h4>Matriz de Confusión:</h4>';
+                            const confusionMatrix = data["Matriz de Confusion"];
+
+                            // Crear la tabla
+                            const table = document.createElement('table');
+                            table.className = 'table table-bordered table-hover';
+                            const thead = document.createElement('thead');
+                            const tbody = document.createElement('tbody');
+
+                            // Crear encabezados personalizados de columnas
+                            const headerRow = document.createElement('tr');
+                            headerRow.innerHTML = '<th></th><th>ODS 3</th><th>ODS 4</th><th>ODS 5</th>';  // Encabezados de columnas
+                            thead.appendChild(headerRow);
+                            table.appendChild(thead);
+
+                            // Etiquetas para la columna izquierda (ODS 3, ODS 4, ODS 5)
+                            const labels = ['ODS 3', 'ODS 4', 'ODS 5'];
+
+                            // Llenar la tabla con la matriz de confusión y añadir la columna izquierda con etiquetas
+                            confusionMatrix.forEach((row, index) => {
+                                const tableRow = document.createElement('tr');
+                                
+                                // Agregar la columna izquierda con las etiquetas
+                                const labelCell = document.createElement('th');
+                                labelCell.innerText = labels[index];
+                                tableRow.appendChild(labelCell);
+
+                                // Agregar los valores de la matriz de confusión
+                                row.forEach(cell => {
+                                    const td = document.createElement('td');
+                                    td.innerText = cell;
+                                    tableRow.appendChild(td);
+                                });
+
+                                tbody.appendChild(tableRow);
+                            });
+                            table.appendChild(tbody);
+
+                            // Añadir la tabla al div de resultados
+                            resultDiv.appendChild(table);
+
+                            // Mostrar el reporte de clasificación en una tabla
+                            resultDiv.innerHTML += '<h4>Reporte de Clasificación:</h4>';
+                            const classificationReport = data["Reporte de Clasificacion"];
+
+                            const reportTable = document.createElement('table');
+                            reportTable.className = 'table table-bordered table-hover';
+
+                            // Crear el encabezado de la tabla
+                            const reportThead = document.createElement('thead');
+                            const reportHeaderRow = document.createElement('tr');
+                            reportHeaderRow.innerHTML = '<th>Clase</th><th>Precisión</th><th>Recall</th><th>F1-Score</th><th>Soporte</th>';
+                            reportThead.appendChild(reportHeaderRow);
+                            reportTable.appendChild(reportThead);
+
+                            // Crear el cuerpo de la tabla
+                            const reportTbody = document.createElement('tbody');
+
+                            // Iterar sobre las clases '3', '4', '5'
+                            ['3', '4', '5'].forEach((key) => {
+                                const metrics = classificationReport[key];
+                                const row = document.createElement('tr');
+                                row.innerHTML = `<td>ODS ${key}</td>
+                                                <td>${metrics.precision}</td>
+                                                <td>${metrics.recall}</td>
+                                                <td>${metrics['f1-score']}</td>
+                                                <td>${metrics.support}</td>`;
+                                reportTbody.appendChild(row);
+                                
+                            });
+
+                            // Añadir el cuerpo de la tabla al reporte
+                            reportTable.appendChild(reportTbody);
+
+                            // Añadir la tabla al div de resultados
+                            resultDiv.appendChild(reportTable);
+                        })
+                        .catch(error => {
+                            console.error('Error al reentrenar el modelo:', error);
+                            const resultDiv = document.getElementById('result');
+                            resultDiv.innerHTML = '<h3>Error:</h3><p>No se pudo reentrenar el modelo. Verifica el formato del archivo.</p>';
+                        });
+                    } catch (error) {
+                        console.error('Error al parsear JSON:', error);
+                        const resultDiv = document.getElementById('result');
+                        resultDiv.innerHTML = '<h3>Error:</h3><p>El archivo no es un JSON válido.</p>';
+                    }
+                };
+
+                reader.readAsText(file);
+            } else {
+                alert('Por favor, selecciona un archivo JSON para cargar.');
+            }
+        });
+    </script>
+</body>
+</html>
